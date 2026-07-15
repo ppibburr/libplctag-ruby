@@ -1,0 +1,116 @@
+#!/usr/bin/env ruby
+
+require 'optparse'
+require 'json'
+$: << File.expand_path(File.join(File.dirname(__FILE__),"..","lib"))
+require "plc/tag"
+
+options = {}
+
+OptionParser.new do |opts|
+  opts.banner = "Usage: example.rb [options]"
+  
+  opts.on("-v", "--value=VALUE", "set tag value") do |v|
+    options[:value] = v
+  end
+  
+  opts.on("-p", "--path=PATH", "path") do |v|
+    options[:path] = v
+  end
+  
+  opts.on("", "--port PORT", "port") do |v|
+    options[:port] = v
+  end
+  
+  opts.on("-t", "--tag-name=TAG", "tag name") do |v|
+    options[:tag] = v
+  end
+  
+  opts.on(nil, "--lgx", "connect to LGX cpu") do |v|
+    options[:proto] = :LGX
+  end
+  
+  opts.on(nil, "--modbus", "connect to MODBUS-TCP") do |v|
+    options[:proto] = :MODBUS
+  end
+  
+  opts.on(nil, "--dint", "tag of DINT (int32)") do |v|
+    options[:type] = :int32
+  end
+  
+  opts.on(nil, "--int16", "tag of int16") do |v|
+    options[:type] = :int16
+  end
+  
+  opts.on(nil, "--bit", "bit tag") do |v|
+    options[:type] = :bit
+  end
+  
+  opts.on("", "--timeout=VALUE", "timeout") do |v|
+    options[:timeout] = v.to_i
+  end
+  
+  opts.on_tail("-h", "--help", "Show this message") do
+    puts opts
+    exit
+  end
+end.parse!
+
+STDERR.puts options
+
+def value t, options
+case options[:type]
+when :bit
+  t.get_bit(0)
+when :dint
+  t.get_int32(0)
+when :int16
+  t.get_int16(0)
+else
+
+end
+end
+
+def set t,v,options
+  if [:int32, :int16, :bit].index(options[:type])
+    v = v.to_i
+    case options[:type]
+    when :int32 , :int16 , :bit
+      t.send "set_#{options[:type]}", 0, v
+      t.write options[:timeout]||=50
+    end
+  end
+end
+
+if options[:proto] == :MODBUS
+  if !options[:type]
+    if options[:tag] =~ /^(hr|ir)/
+      options[:type]=:int16
+    else
+      options[:type]=:bit
+    end
+  end
+end
+
+tn   = options[:tag] || fail("no tag name")
+addr = ARGV[-1]
+
+plc = case options[:proto]
+when :MODBUS
+  Plc::ModBus.new(addr, port: options[:port], path: options[:path])
+when :LGX
+  Plc::LGX.new(addr, port: options[:port], path: options[:path])
+when :SLC
+  Plc.new(addr, port: options[:port], path: options[:path])
+end
+
+t = plc.tag tn, elem_count: 1
+t.read 50
+
+if options[:value]
+  set t,options[:value],options
+end
+
+puts value(t,options).to_json
+
+t.destroy
