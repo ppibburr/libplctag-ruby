@@ -1,5 +1,5 @@
 desc "installs PlcTag for ruby"
-task :install, [:gem] do
+task :install => [:gem] do
   if File.exist?("build")
     sh "rm -rf build/libplctag-vala"
   end
