@@ -8,6 +8,7 @@ loader.load "PlcTag"
 class Plc
   class Tag < PlcTag::Tag
     def self.new *o
+      p @path = o[0]
       create *o
     end
   end

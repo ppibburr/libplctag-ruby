@@ -1,0 +1,21 @@
+#!/usr/bin/env ruby
+
+$: << File.expand_path(File.join(File.dirname(__FILE__),"..","lib"))
+require 'plc/modbus/gateway'
+
+server = Plc::ModBus::Gateway.new 10002, slave: 255
+
+server.slave.coils = [1, 0, 1, 1]
+server.slave.holding_registers = [69, 224, 111, 10, 3, 224,359,284,2824,70,9]
+server.slave.input_registers = [1, 2, 3, 4]
+
+Thread.new do
+  loop do
+    p server.slave.holding_registers
+    sleep 1
+  end
+
+  
+end
+
+server.join

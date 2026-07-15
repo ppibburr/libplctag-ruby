@@ -1,0 +1,9 @@
+#!/usr/bin/env ruby
+
+require 'sinatra'
+require 'json'
+$: << File.expand_path(File.join(File.dirname(__FILE__),"..","lib"))
+require "plc/webapi"
+require "plc/tag"
+
+Plc::WebAPI.run!
