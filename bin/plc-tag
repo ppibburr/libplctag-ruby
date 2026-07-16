@@ -5,7 +5,7 @@ require 'json'
 $: << File.expand_path(File.join(File.dirname(__FILE__),"..","lib"))
 require "plc/tag"
 
-options = {}
+options = {count: 1}
 
 OptionParser.new do |opts|
   opts.banner = "Usage: example.rb [options]"
@@ -14,6 +14,10 @@ OptionParser.new do |opts|
     options[:value] = v
   end
   
+  opts.on("", "--values=VALUES", "set tag values") do |v|
+    options[:values] = v
+  end  
+  
   opts.on("-p", "--path=PATH", "path") do |v|
     options[:path] = v
   end
@@ -21,6 +25,10 @@ OptionParser.new do |opts|
   opts.on("", "--port PORT", "port") do |v|
     options[:port] = v
   end
+  
+  opts.on("-c", "--elem-count=ELEM_COUNT", "element count") do |v|
+    options[:count] = v
+  end  
   
   opts.on("-t", "--tag-name=TAG", "tag name") do |v|
     options[:tag] = v
@@ -59,26 +67,15 @@ end.parse!
 STDERR.puts options
 
 def value t, options
-case options[:type]
-when :bit
-  t.get_bit(0)
-when :dint
-  t.get_int32(0)
-when :int16
-  t.get_int16(0)
-else
+  case options[:type]
+  when :bit
+    t.get_bit(0)
+  when :dint
+    t.get_int32(0)
+  when :int16
+    t.get_int16(0)
+  else
 
-end
-end
-
-def set t,v,options
-  if [:int32, :int16, :bit].index(options[:type])
-    v = v.to_i
-    case options[:type]
-    when :int32 , :int16 , :bit
-      t.send "set_#{options[:type]}", 0, v
-      t.write options[:timeout]||=50
-    end
   end
 end
 
@@ -104,13 +101,35 @@ when :SLC
   Plc.new(addr, port: options[:port], path: options[:path])
 end
 
-t = plc.tag tn, elem_count: 1
-t.read 50
+plc.tag tn, elem_count: options[:count] do |t|
+  t.value_type = options[:type]
 
-if options[:value]
-  set t,options[:value],options
+  if v=options[:value]
+    t[0] = v.to_i
+    t.write 50
+  end
+  
+  if values=options[:values]
+    JSON.parse(values).each_with_index do |v,i|
+      t[i] = v.to_i
+      t.write 50
+    end
+  end  
+
+  puts t.to_a.to_json
+end
+exit
+
+__END__
+plc.holding_registers(7,1) do |t|
+  t[3] = 69
+  t.write 50
+  t.read 50
+  p t[2]
+  p t[3..-2]
+  p t.to_a
 end
 
-puts value(t,options).to_json
+puts t[0].to_json
 
 t.destroy
